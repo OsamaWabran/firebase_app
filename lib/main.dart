@@ -1,17 +1,20 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'firebase_options.dart';
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   await requestPermission(); // طلب الإذن
-  await getToken();          // جلب التوكن
+  await getToken(); // جلب التوكن
+  await initLocalNotifications(); // تهيئة الإشعارات المحلية
 
   runApp(const MainApp());
 }
@@ -31,6 +34,34 @@ Future<void> getToken() async {
   print("TOKEN: $token");
 }
 
+// تهيئة الإشعارات المحلية
+Future<void> initLocalNotifications() async {
+  const AndroidInitializationSettings androidSettings =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings settings = InitializationSettings(
+    android: androidSettings,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(settings: settings);
+}
+
+// عرض الإشعار
+Future<void> showNotification(String title, String body) async {
+  const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    'channel_id',
+    'channel_name',
+    importance: Importance.max,
+    priority: Priority.high,
+  );
+
+  const NotificationDetails details = NotificationDetails(
+    android: androidDetails,
+  );
+
+  await flutterLocalNotificationsPlugin.show(id: 0, title: title, body: body);
+}
+
 class MainApp extends StatefulWidget {
   const MainApp({super.key});
 
@@ -39,7 +70,6 @@ class MainApp extends StatefulWidget {
 }
 
 class _MainAppState extends State<MainApp> {
-
   @override
   void initState() {
     super.initState();
@@ -47,8 +77,13 @@ class _MainAppState extends State<MainApp> {
     // استقبال الإشعارات والتطبيق مفتوح
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       print('📩 رسالة جديدة!');
-      print('Title: ${message.notification?.title}');
-      print('Body: ${message.notification?.body}');
+
+      if (message.notification != null) {
+        showNotification(
+          message.notification!.title ?? '',
+          message.notification!.body ?? '',
+        );
+      }
     });
 
     // لما المستخدم يضغط على الإشعار
